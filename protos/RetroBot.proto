@@ -1,0 +1,212 @@
+#VRML_SIM R2025a utf8
+# RetroBot: 레트로 외형의 회상 치료 로봇
+# - CRT 얼굴(Display "face"), 고개 좌우/상하, 양팔, 안테나 LED, 스피커
+# - 정면 방향: +X
+
+PROTO RetroBot [
+  field SFVec3f    translation 0 0 0
+  field SFRotation rotation    0 0 1 0
+  field SFString   name        "retrobot"
+  field SFString   controller  "retrobot"
+  field SFBool     supervisor  TRUE
+  field SFColor    bodyColor   0.86 0.79 0.63
+]
+{
+  Robot {
+    translation IS translation
+    rotation IS rotation
+    name IS name
+    controller IS controller
+    supervisor IS supervisor
+    children [
+      # ---- 받침대 (크롬 원통) ----
+      Pose {
+        translation 0 0 0.05
+        children [
+          Shape {
+            appearance DEF CHROME PBRAppearance { baseColor 0.75 0.75 0.78 roughness 0.25 metalness 0.9 }
+            geometry Cylinder { height 0.1 radius 0.2 }
+          }
+        ]
+      }
+      # ---- 몸통 (베이지 박스) ----
+      Pose {
+        translation 0 0 0.35
+        children [
+          Shape {
+            appearance DEF BODY PBRAppearance { baseColor IS bodyColor roughness 0.7 metalness 0 }
+            geometry Box { size 0.28 0.34 0.42 }
+          }
+        ]
+      }
+      # ---- 가슴 다이얼 & 스피커 그릴 ----
+      Pose {
+        translation 0.142 -0.08 0.45
+        rotation 0 1 0 1.5708
+        children [
+          Shape {
+            appearance DEF DIAL PBRAppearance { baseColor 0.55 0.18 0.12 roughness 0.4 metalness 0.2 }
+            geometry Cylinder { height 0.02 radius 0.03 }
+          }
+        ]
+      }
+      Pose {
+        translation 0.142 0.08 0.45
+        rotation 0 1 0 1.5708
+        children [
+          Shape { appearance USE DIAL geometry Cylinder { height 0.02 radius 0.03 } }
+        ]
+      }
+      Pose {
+        translation 0.142 0 0.28
+        children [
+          Shape {
+            appearance DEF GRILL PBRAppearance { baseColor 0.25 0.22 0.2 roughness 0.9 metalness 0.1 }
+            geometry Box { size 0.01 0.2 0.12 }
+          }
+        ]
+      }
+      Speaker { name "speaker" translation 0.15 0 0.28 }
+
+      # ---- 왼팔 ----
+      HingeJoint {
+        jointParameters HingeJointParameters { axis 0 1 0 anchor 0 0.19 0.5 }
+        device [
+          RotationalMotor { name "left_shoulder" maxVelocity 3 minPosition -2.6 maxPosition 0.8 }
+          PositionSensor { name "left_shoulder_sensor" }
+        ]
+        endPoint Solid {
+          translation 0 0.19 0.5
+          name "left_arm"
+          children [
+            Pose {
+              translation 0 0.02 -0.13
+              children [
+                Shape { appearance USE CHROME geometry Cylinder { height 0.26 radius 0.025 } }
+              ]
+            }
+            Pose {
+              translation 0 0.02 -0.27
+              children [
+                Shape { appearance USE BODY geometry Sphere { radius 0.04 } }
+              ]
+            }
+          ]
+        }
+      }
+      # ---- 오른팔 ----
+      HingeJoint {
+        jointParameters HingeJointParameters { axis 0 1 0 anchor 0 -0.19 0.5 }
+        device [
+          RotationalMotor { name "right_shoulder" maxVelocity 3 minPosition -2.6 maxPosition 0.8 }
+          PositionSensor { name "right_shoulder_sensor" }
+        ]
+        endPoint Solid {
+          translation 0 -0.19 0.5
+          name "right_arm"
+          children [
+            Pose {
+              translation 0 -0.02 -0.13
+              children [
+                Shape { appearance USE CHROME geometry Cylinder { height 0.26 radius 0.025 } }
+              ]
+            }
+            Pose {
+              translation 0 -0.02 -0.27
+              children [
+                Shape { appearance USE BODY geometry Sphere { radius 0.04 } }
+              ]
+            }
+          ]
+        }
+      }
+
+      # ---- 목 (좌우 회전) ----
+      HingeJoint {
+        jointParameters HingeJointParameters { axis 0 0 1 anchor 0 0 0.58 }
+        device [
+          RotationalMotor { name "neck_pan" maxVelocity 2 minPosition -1.2 maxPosition 1.2 }
+          PositionSensor { name "neck_pan_sensor" }
+        ]
+        endPoint Solid {
+          translation 0 0 0.58
+          name "neck"
+          children [
+            Pose {
+              translation 0 0 0.03
+              children [
+                Shape { appearance USE CHROME geometry Cylinder { height 0.06 radius 0.04 } }
+              ]
+            }
+            # ---- 머리 (상하 끄덕임) ----
+            HingeJoint {
+              jointParameters HingeJointParameters { axis 0 1 0 anchor 0 0 0.07 }
+              device [
+                RotationalMotor { name "neck_tilt" maxVelocity 2 minPosition -0.5 maxPosition 0.5 }
+                PositionSensor { name "neck_tilt_sensor" }
+              ]
+              endPoint Solid {
+                translation 0 0 0.07
+                name "head"
+                children [
+                  # CRT 케이스
+                  Pose {
+                    translation 0 0 0.13
+                    children [
+                      Shape { appearance USE BODY geometry Box { size 0.26 0.32 0.26 } }
+                    ]
+                  }
+                  # 화면 베젤
+                  Pose {
+                    translation 0.131 0 0.13
+                    children [
+                      Shape { appearance USE GRILL geometry Box { size 0.005 0.28 0.22 } }
+                    ]
+                  }
+                  # CRT 얼굴 디스플레이 (첫 번째 Shape의 ImageTexture에 화면이 그려짐)
+                  Display {
+                    name "face"
+                    width 128
+                    height 96
+                    translation 0.135 0 0.13
+                    rotation 0.5773 0.5773 0.5773 2.0944
+                    children [
+                      Shape {
+                        appearance PBRAppearance {
+                          baseColorMap ImageTexture { }
+                          roughness 0.2
+                          metalness 0
+                          emissiveIntensity 1
+                        }
+                        geometry Plane { size 0.25 0.19 }
+                      }
+                    ]
+                  }
+                  # 안테나
+                  Pose {
+                    translation 0 0 0.32
+                    children [
+                      Shape { appearance USE CHROME geometry Cylinder { height 0.12 radius 0.006 } }
+                    ]
+                  }
+                  LED {
+                    name "antenna_led"
+                    translation 0 0 0.39
+                    color [ ]
+                    gradual TRUE  # color가 비어 있고 gradual TRUE → RGB LED (set(0xRRGGBB))
+                    children [
+                      Shape {
+                        appearance PBRAppearance { baseColor 0.9 0.2 0.2 emissiveColor 0 0 0 roughness 0.3 }
+                        geometry Sphere { radius 0.022 }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
