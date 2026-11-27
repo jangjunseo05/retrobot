@@ -19,7 +19,7 @@ controllers/retrobot/
   safety.py                  고통 지수 기반 자극 조절, 중단 신호
 tools/chat_client.py         내담자 역할 채팅 클라이언트
 tools/gen_sounds.py          효과음 생성 (assets/sounds/*.wav)
-tests/test_core.py           Webots 없이 돌리는 핵심 로직 테스트
+tests/                       Webots 없이 돌리는 단위 테스트(test_core) + 통합 테스트(test_e2e)
 logs/                        세션 로그 (JSONL, 검증 지표용)
 ```
 

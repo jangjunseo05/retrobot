@@ -14,6 +14,8 @@ STOP_THRESHOLD = 7
 RECOVER_THRESHOLD = 3
 RECOVER_TURNS = 2
 STOP_WORDS = ("/stop", "그만", "멈춰", "중단")
+# "그만" 뒤에 이 글자가 오면 중단 의사로 본다 ("그만해", "그만 할래") / "그만큼", "그만두셨어" 등은 제외
+_STOP_FOLLOWERS = ("", " ", "해", "할", "하", "요", ".", "!")
 
 
 @dataclass
@@ -24,7 +26,9 @@ class SafetyMonitor:
 
     def is_stop_request(self, text: str) -> bool:
         t = text.strip()
-        return t == "/stop" or any(t.startswith(w) for w in STOP_WORDS[1:])
+        if t == "/stop" or t.startswith(("멈춰", "중단")):
+            return True
+        return t.startswith("그만") and t[2:3] in _STOP_FOLLOWERS
 
     def force_stop(self) -> str:
         self.level = "stop"

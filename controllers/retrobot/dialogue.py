@@ -131,6 +131,18 @@ def _safe_fallback_turn(reply: str) -> TurnResult:
     )
 
 
+# 한 글자 키워드('집', '방', '네' 등)는 다른 단어 속에 섞이기 쉬워서('집중', '방금', '할머니네')
+# 어절 전체이거나 뒤에 조사가 붙은 경우에만 인정한다.
+_PARTICLES = ("", "에", "에서", "이", "가", "을", "를", "은", "는", "도", "의", "로", "으로", "엔", "에선",
+              "요", ",", ".", "!", "?")
+
+
+def _contains(text: str, word: str) -> bool:
+    if len(word) > 1:
+        return word in text
+    return any(tok.startswith(word) and tok[len(word):] in _PARTICLES for tok in text.split())
+
+
 class MockDialogue:
     """API 없이 파이프라인(장면 생성·표정·소리·안전 로직)을 검증하기 위한 키워드 기반 엔진."""
 
@@ -144,18 +156,20 @@ class MockDialogue:
         },
         "objects": {
             "티비": "crt_tv", "TV": "crt_tv", "텔레비전": "crt_tv", "라디오": "radio", "소파": "sofa",
-            "밥상": "low_table", "상": "low_table", "의자": "chair", "책상": "desk", "칠판": "chalkboard",
+            "밥상": "low_table", "의자": "chair", "책상": "desk", "칠판": "chalkboard",
             "침대": "bed", "책장": "bookshelf", "스탠드": "lamp", "사진": "photo_frame", "나무": "tree",
             "그네": "swing", "미끄럼틀": "slide", "파라솔": "umbrella", "시계": "clock",
         },
         "sound": {
-            "라디오": "radio_static", "비": "rain", "새": "birds", "오르골": "music_box", "종": "school_bell",
+            "라디오": "radio_static", "비가": "rain", "비 오": "rain", "비오": "rain", "빗소리": "rain",
+            "새소리": "birds", "새들": "birds", "오르골": "music_box", "종소리": "school_bell", "종이 울": "school_bell",
             "파도": "waves", "귀뚜라미": "crickets", "째깍": "clock_tick", "시계": "clock_tick",
         },
         "time_of_day": {"아침": "morning", "낮": "afternoon", "오후": "afternoon", "저녁": "evening", "밤": "night"},
     }
-    DISTRESS_WORDS = ("무서", "숨이", "못 하겠", "그만", "괴로", "죽고", "힘들", "눈물", "울")
+    DISTRESS_WORDS = ("무서", "숨이", "못 하겠", "괴로", "죽고", "힘들", "눈물", "울었", "울고", "울음", "울컥")
     CONSENT_WORDS = ("응", "네", "좋아", "괜찮", "보여줘", "보여 줘")
+    REFUSAL_WORDS = ("싫", "아니", "안 괜찮", "안 돼", "안돼", "나중에")
 
     def __init__(self):
         self.turn = 0
@@ -166,7 +180,7 @@ class MockDialogue:
         update = {"place": "none", "time_of_day": None, "objects": [], "sound": None, "mood": None, "summary": ""}
         for key, table in self.KEYWORDS.items():
             for word, value in table.items():
-                if word in user_text:
+                if _contains(user_text, word):
                     if key == "objects":
                         update["objects"].append(value)
                     elif key == "place" and update["place"] == "none":
@@ -187,7 +201,9 @@ class MockDialogue:
                               distress=distress, reenact=False, memory=MemoryUpdate(**update))
 
         found = update["place"] != "none" or update["objects"] or update["sound"]
-        if self.asked_consent and any(w in user_text for w in self.CONSENT_WORDS):
+        consent = (any(_contains(user_text, w) for w in self.CONSENT_WORDS)
+                   and not any(w in user_text for w in self.REFUSAL_WORDS))
+        if self.asked_consent and consent:
             self.asked_consent = False
             return TurnResult(reply="그럼 그 장면을 무대에 띄워 볼게요. 무엇이 가장 먼저 눈에 들어오세요?",
                               emotion="happy", gesture="point_stage", phase="reenact", distress=distress,

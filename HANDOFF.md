@@ -1,6 +1,6 @@
 # retrobot 인계 문서
 
-> 작성일: 2026-11-25 · 다른 노트북에서 작업을 이어가기 위한 문서
+> 작성일: 2026-11-25 · 최종 갱신: 2026-11-27 · 다른 노트북에서 작업을 이어가기 위한 문서
 
 ## 1. 프로젝트 요약
 
@@ -21,7 +21,9 @@
 | 월드 `worlds/retrobot.wbt` (치료실 + 기억 무대) | ✅ 작성 완료 · ⚠️ Webots 실행 확인 전 |
 | 컨트롤러 (대화/기억/장면/표정/소리/안전/로그) | ✅ 작성 완료 |
 | 효과음 9종 `assets/sounds/` | ✅ 생성 완료 (`tools/gen_sounds.py`) |
-| 단위 테스트 9개 (Webots 없이 실행) | ✅ 전부 통과 |
+| 단위 테스트 13개 + 통합 테스트 1개 (Webots 없이 실행) | ✅ 전부 통과 |
+| 컨트롤러 전체 실행 (가짜 Webots 위에서 채팅→무대 생성→배경음→/stop) | ✅ 확인 (`tests/test_e2e.py`) |
+| 월드에서 쓰는 Webots 내장 PROTO 필드·텍스처 이름 | ✅ R2025a 공식 PROTO 파일과 대조 확인 |
 | Claude API 요청 형식 | ✅ 확인 (잘못된 키로 보냈을 때 인증 오류 401만 발생 = 요청 구조는 정상) |
 | 실제 API 키로 대화 | ❌ 아직 안 해봄 |
 | **Webots에서 실제 실행** | ❌ **아직 안 해봄** (이전 노트북에 Webots 미설치) |
@@ -34,7 +36,7 @@ cd retrobot
 python -m venv .venv            # 권장: 전용 가상환경
 # Windows: .venv\Scripts\activate   /   macOS·Linux: source .venv/bin/activate
 pip install -r requirements.txt
-python -m unittest discover tests -v   # 9개 통과 확인
+python -m unittest discover tests -v   # 14개 통과 확인
 ```
 
 1. **Webots R2025a 이상** 설치: https://cyberbotics.com
@@ -67,6 +69,7 @@ controllers/retrobot/
   safety.py       고통 지수 기준: 5 이상 soft, 7 이상 stop, 연속 2턴 동안 3 이하일 때 해제. /stop·"그만" 즉시 중단
 tools/            chat_client.py, gen_sounds.py
 tests/test_core.py  Webots controller 모듈을 가짜로 대체해 핵심 로직을 테스트
+tests/test_e2e.py   retrobot.main()을 가짜 Webots + 실제 TCP 소켓으로 끝까지 실행하는 통합 테스트
 ```
 
 **세션 단계**: rapport → recall(기억 탐색, 재현 전 동의 확인) → reenact(무대 재현) → closure(무대 정리)
@@ -91,7 +94,25 @@ tests/test_core.py  Webots controller 모듈을 가짜로 대체해 핵심 로�
 4. 이후 확장 후보: 음성 입출력(STT/TTS, Webots 내장 TTS는 한국어 미지원), 기억 장소·소품 추가,
    세션 로그로 검증 지표 만들기(고통 지수 추이, 재현 횟수, 중단 횟수), ROS 2 연동
 
-## 6. 참고·주의
+## 6. 변경 이력
+
+- **2026-11-25** 1단계 뼈대 작성, GitHub 업로드
+- **2026-11-27** (이전 노트북에서 마무리)
+  - Mock 엔진 키워드 오탐 수정: 고통 단어 "울"이 '서울/겨울'에 걸리던 문제, "방/비/새/상/종"이 '방금/비밀/새로운/상상/종이'에 걸리던 문제.
+    한 글자 키워드는 어절 전체이거나 조사가 붙은 경우에만 인정하도록 변경 (`dialogue.py`의 `_contains`). 재현 동의 판정에 거절 표현("싫", "아니" 등) 반영
+  - 중단 신호 "그만"이 '그만큼/그만두셨던'에 걸리지 않도록 수정 (`safety.py`)
+  - 통합 테스트 `tests/test_e2e.py` 추가
+  - `.gitattributes` 추가 (줄바꿈 LF 고정, wav는 바이너리)
+
+## 7. 알려진 남은 이슈
+
+- **응답 도중 다른 모델로 넘어간 경우의 기록 처리 (우선순위 낮음)**: Claude 응답이 출력 도중 거절되어 다른 모델로 넘어가면,
+  응답 안에 `fallback` 블록이 생긴다. 다음 요청에 기록을 되돌려 보낼 때는 그 블록 *앞*에 있는 thinking/tool_use 블록을 빼야 하는데,
+  현재 `_echo_blocks`는 모든 블록을 그대로 보낸다 → 이 드문 경우에 다음 턴이 400 오류로 실패할 수 있다.
+  실제 대화 테스트 중 400이 나오면 여기부터 확인할 것.
+- Mock 엔진은 파이프라인 검증용이라 키워드 매칭이 단순하다 (부정문 "라디오는 없었어"도 라디오로 인식). 실제 대화 품질은 Claude 엔진으로 평가한다.
+
+## 8. 참고·주의
 
 - 실제 내담자를 대상으로 하려면 IRB 승인, 대화 로그 개인정보 처리, 임상 전문가 감독이 필요하다. 현재는 가상 시나리오로만 검증한다.
 - `logs/`(세션 대화 로그)는 `.gitignore`에 포함되어 있으며 레포에 올라가지 않는다. **이 레포는 public이므로** API 키·대화 로그를 커밋하지 말 것.

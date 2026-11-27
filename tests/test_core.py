@@ -140,6 +140,40 @@ class SafetyTests(unittest.TestCase):
         self.assertTrue(m.is_stop_request("/stop"))
         self.assertTrue(m.is_stop_request("그만할래"))
         self.assertFalse(m.is_stop_request("그때 할머니가 그만 웃으셨어"))
+        self.assertTrue(m.is_stop_request("그만해"))
+        self.assertTrue(m.is_stop_request("그만 할래"))
+        self.assertFalse(m.is_stop_request("그만큼 좋았어"))
+        self.assertFalse(m.is_stop_request("그만두셨던 가게가 생각나"))
+
+
+class MockKeywordTests(unittest.TestCase):
+    """한 글자 키워드가 다른 단어 속에서 잘못 잡히지 않는지 (서울/겨울 → '울', 방금 → '방' 등)."""
+
+    def respond(self, text):
+        return MockDialogue().respond(text, "")
+
+    def test_no_false_distress(self):
+        for text in ("겨울에 서울 갔던 날", "울타리 옆에서 놀았어", "새로운 학교였어"):
+            self.assertEqual(self.respond(text).distress, 0, text)
+
+    def test_no_false_place_or_sound(self):
+        r = self.respond("방금 비밀 이야기가 생각났어, 상상이었나")
+        self.assertEqual(r.memory.place, "none")
+        self.assertIsNone(r.memory.sound)
+        self.assertEqual(r.memory.objects, [])
+
+    def test_real_keywords_still_match(self):
+        r = self.respond("내 방에서 비가 오는 소리를 들으며 울었어")
+        self.assertEqual(r.memory.place, "bedroom")
+        self.assertEqual(r.memory.sound, "rain")
+        self.assertGreater(r.distress, 0)
+
+    def test_consent_refusal(self):
+        m = MockDialogue()
+        m.respond("안녕", "")
+        m.respond("할머니 집에서 라디오를 들었어", "")
+        self.assertFalse(m.respond("아니요, 싫어요", "").reenact)
+        self.assertTrue(m.respond("네 보여줘", "").reenact)
 
 
 class SessionTests(unittest.TestCase):
